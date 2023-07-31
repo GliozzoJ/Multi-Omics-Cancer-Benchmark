@@ -304,11 +304,18 @@ check.empirical.surv <- function(old.pvals, new.pvals) {
   return(is.in.conf)
 }
 
+#' Compute empirical survival using a permutation test
+#'
+#' @param clustering vector. Named vector with obtained clusterings.
+#' @param subtype string. Name of subtype.
+#'
+#' @return List with p-value, confidence interval and number of permutations
+#' @export
 get.empirical.surv <- function(clustering, subtype) {
   set.seed(42)
-  surv.ret = check.survival(clustering, subtype)
-  orig.chisq = surv.ret$chisq
-  orig.pvalue = get.logrank.pvalue(surv.ret)
+  surv.ret = check.survival(clustering, subtype) # Compute survival diff
+  orig.chisq = surv.ret$chisq # Extract chi2
+  orig.pvalue = get.logrank.pvalue(surv.ret) # compute log-rank p-value
   # The initial number of permutations to run
   num.perms = round(min(max(10 / orig.pvalue, 1000), 1e6))
   should.continue = T
@@ -319,6 +326,7 @@ get.empirical.surv <- function(clustering, subtype) {
   while (should.continue) {
     print('Another iteration in empirical survival calculation')
     print(num.perms)
+    # Compute the chi2 statistic for each permutation
     perm.chisq = as.numeric(mclapply(1:num.perms, function(i) {
       cur.clustering = sample(clustering)
       names(cur.clustering) = names(clustering)
@@ -326,12 +334,12 @@ get.empirical.surv <- function(clustering, subtype) {
       return(cur.chisq)
     }, mc.cores=50))
     
-    total.num.perms = total.num.perms + num.perms
-    total.num.extreme.chisq = total.num.extreme.chisq + sum(perm.chisq >= orig.chisq)
+    total.num.perms = total.num.perms + num.perms #update number of perms computed
+    total.num.extreme.chisq = total.num.extreme.chisq + sum(perm.chisq >= orig.chisq) #number of extreme chisq
     
-    binom.ret = binom.test(total.num.extreme.chisq, total.num.perms)
-    cur.pvalue = binom.ret$estimate
-    cur.conf.int = binom.ret$conf.int
+    binom.ret = binom.test(total.num.extreme.chisq, total.num.perms)  #binomial test
+    cur.pvalue = binom.ret$estimate # the estimated probability of success
+    cur.conf.int = binom.ret$conf.int # confidence interval for the probability of success
     
     print(c(total.num.extreme.chisq, total.num.perms))
     print(cur.pvalue)
@@ -483,6 +491,14 @@ benchmark.alg.agreement <- function(benchmark.results, omics='all') {
   return(rand.matrix)
 }
 
+
+#' Compute log-rank p-value
+#'
+#' @param survdiff.res list. Result of Test Survival Curve Differences from
+#' "survival" package.
+#'
+#' @return Log-rank p-value
+#' @export
 get.logrank.pvalue <- function(survdiff.res) {
   1 - pchisq(survdiff.res$chisq, length(survdiff.res$n) - 1)  
 }
@@ -975,6 +991,22 @@ get.mkl.clustering <- function(dir.name) {
   return(clustering)
 }
 
+
+#' Test survival curve differences using survival package
+#' 
+#' Nothe that NA values for "Survival" and "Death" variables are set to zero.
+#'
+#' @param groups vector. Named vector with obtained clusterings.
+#' @param subtype string. Name of subtype.
+#' @param survival.file.path string. Path with survival data (table).
+#'
+#' @return List with various elements, including:
+#' - chisq: the chisquare statistic for a test of equality.
+#' - var: the variance matrix of the test.
+#' - pvalue: the p-value corresponding to the Chisquare statistic
+#' @export
+#'
+#' @examples
 check.survival <- function(groups, subtype, survival.file.path) {
   if (missing(survival.file.path)) {
     survival.file.path = get.subtype.survival.path(subtype)
@@ -1026,9 +1058,18 @@ get.clinical.params <- function(subtype.name) {
   return(clinical.params)
 }
 
+
+#' Enrichment analysis on clinical variables (discrete and continuous).
+#'
+#' @param clustering vector. Named vector with obtained clusterings.
+#' @param subtype.name string. Name of subtype.
+#'
+#' @return Vector with one p-value for each clinical variable tested.
+#' @export
 check.clinical.enrichment <- function(clustering, subtype.name) {
-  clinical.params = get.clinical.params(subtype.name)  
+  clinical.params = get.clinical.params(subtype.name)  # read table with clinical params
   
+  # For each clinical variable set if it is numeric or discrete
   clinical.metadata = list(gender='DISCRETE', age_at_initial_pathologic_diagnosis='NUMERIC',
     pathologic_M='DISCRETE', pathologic_N='DISCRETE', pathologic_T='DISCRETE', pathologic_stage='DISCRETE')
   
@@ -1036,7 +1077,7 @@ check.clinical.enrichment <- function(clustering, subtype.name) {
   
   params.being.tested = c()
   
-  for (clinical.param in names(clinical.metadata)) {
+  for (clinical.param in names(clinical.metadata)) { # iter across clinical variables
     
     if (!(clinical.param %in% colnames(clinical.params))) {
       #print(paste0('WARNING: ', clinical.param, ' does not appear for subtype ', subtype.name))
@@ -1044,12 +1085,13 @@ check.clinical.enrichment <- function(clustering, subtype.name) {
     }
     
     clinical.values = clinical.params[names(clustering),clinical.param]
-    is.discrete.param = clinical.metadata[clinical.param] == 'DISCRETE'
-    is.numeric.param = clinical.metadata[clinical.param] == 'NUMERIC'
+    is.discrete.param = clinical.metadata[clinical.param] == 'DISCRETE' #boolean for discrete
+    is.numeric.param = clinical.metadata[clinical.param] == 'NUMERIC' #boolean for numeric
     stopifnot(is.discrete.param | is.numeric.param)
     
     # skip parameter if many missing values
-    
+    # if a clinical value has too many NAs is skipped. It is skipped also
+    # if all values are identical.
     if (is.numeric.param) {
       numeric.entries = !is.na(as.numeric(clinical.values))
       if (2 * sum(numeric.entries) < length(clinical.values)) {
@@ -1072,14 +1114,14 @@ check.clinical.enrichment <- function(clustering, subtype.name) {
     
     params.being.tested = c(params.being.tested, clinical.param)
     
-    if (is.discrete.param) {
+    if (is.discrete.param) { #chi-squared test
       #clustering.with.clinical = cbind(clustering, clinical.values)
       #tbl = table(as.data.frame(clustering.with.clinical[!is.na(clinical.values),]))
       #test.res = chisq.test(tbl)
       #pvalue = test.res$p.value
       pvalue = get.empirical.clinical(clustering[!is.na(clinical.values)], clinical.values[!is.na(clinical.values)], T)
       
-    } else if (is.numeric.param) {
+    } else if (is.numeric.param) { #kruskal wallis
       #test.res = kruskal.test(as.numeric(clinical.values[numeric.entries]),
       #				clustering[numeric.entries])
       #pvalue = test.res$p.value
@@ -1093,6 +1135,16 @@ check.clinical.enrichment <- function(clustering, subtype.name) {
   return(pvalues)
 }
 
+
+#' Compute empirical chi2/kruskal-wallis using a permutation test
+#'
+#' @param clustering vector. Clustering for each sample.
+#' @param clinical.values vector. Vector with values for a clinical variable.
+#' @param is.chisq boolean. True to compute chi2-test on discrete variables, False
+#' to compute Kruskal-Wallis Test on numerical variables. 
+#'
+#' @return P-value for considered test.
+#' @export
 get.empirical.clinical <- function(clustering, clinical.values, is.chisq) {
   set.seed(42)
   if (is.chisq) {
