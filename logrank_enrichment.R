@@ -105,7 +105,7 @@ get.empirical.surv <- function(clustering, seed=42,
                                death.name="cdr.os", 
                                surv.name="cdr.os.time") {
     
-    set.seed(seed)
+    set.seed(seed, "L'Ecuyer-CMRG")
     surv.ret = check.survival(clustering, survival.file.path=survival.file.path, 
                               keep.NA=keep.NA, death.name=death.name, 
                               surv.name=surv.name) # Compute survival diff
@@ -277,7 +277,7 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
 get.empirical.clinical <- function(clustering, clinical.values, is.chisq, 
                                    seed=42) {
     
-    set.seed(seed)
+    set.seed(seed, "L'Ecuyer-CMRG")
     
     if (is.chisq) {
         clustering.with.clinical = cbind(clustering, clinical.values)
