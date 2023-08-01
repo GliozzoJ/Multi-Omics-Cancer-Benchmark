@@ -89,15 +89,29 @@ check.survival <- function(groups, survival.file.path, keep.NA=T, death.name="cd
 #' Compute empirical survival using a permutation test
 #'
 #' @param clustering vector. Named vector with obtained clusterings.
-#' @param subtype string. Name of subtype.
+#' @param seed integer. Set seed for reproducibility. 
+#' @param survival.file.path string. Path with survival data (accepted table or
+#' .rds format containing a dataframe with rownames). Data need to be samples x features.
+#' @param keep.NA boolean. Do you want to keep NAs in survival time and event? (def. T).
+#' If FALSE, NAs are substituted with 0. 
+#' @param death.name string. Name of the column in data that has the survival event
+#' as 1 = Death, 0 = Alive.
+#' @param surv.name string. Name of the column in data that has the survival time.
 #'
 #' @return List with p-value, confidence interval and number of permutations
 #' @export
-get.empirical.surv <- function(clustering, subtype) {
-    set.seed(42)
-    surv.ret = check.survival(clustering, subtype) # Compute survival diff
+get.empirical.surv <- function(clustering, seed=42, 
+                               survival.file.path, keep.NA=T, 
+                               death.name="cdr.os", 
+                               surv.name="cdr.os.time") {
+    
+    set.seed(seed)
+    surv.ret = check.survival(clustering, survival.file.path=survival.file.path, 
+                              keep.NA=keep.NA, death.name=death.name, 
+                              surv.name=surv.name) # Compute survival diff
     orig.chisq = surv.ret$chisq # Extract chi2
     orig.pvalue = get.logrank.pvalue(surv.ret) # compute log-rank p-value
+    
     # The initial number of permutations to run
     num.perms = round(min(max(10 / orig.pvalue, 1000), 1e6))
     should.continue = T
@@ -112,7 +126,10 @@ get.empirical.surv <- function(clustering, subtype) {
         perm.chisq = as.numeric(mclapply(1:num.perms, function(i) {
             cur.clustering = sample(clustering)
             names(cur.clustering) = names(clustering)
-            cur.chisq = check.survival(cur.clustering, subtype)$chisq
+            cur.chisq = check.survival(cur.clustering, 
+                                       survival.file.path=survival.file.path, 
+                                       keep.NA=keep.NA, death.name=death.name, 
+                                       surv.name=surv.name)$chisq
             return(cur.chisq)
         }, mc.cores=50))
         
@@ -131,7 +148,6 @@ get.empirical.surv <- function(clustering, subtype) {
         is.conf.small = ((cur.conf.int[2] - cur.pvalue) < min(cur.pvalue / 10, 0.01)) & ((cur.pvalue - cur.conf.int[1]) < min(cur.pvalue / 10, 0.01))
         is.threshold.in.conf = cur.conf.int[1] < sig.threshold & cur.conf.int[2] > sig.threshold
         if ((is.conf.small & !is.threshold.in.conf) | (total.num.perms > 2e7)) {
-            #if (is.conf.small) {
             should.continue = F
         } else {
             num.perms = 1e5
