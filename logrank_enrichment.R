@@ -162,16 +162,29 @@ get.empirical.surv <- function(clustering, seed=42,
 #' Enrichment analysis on clinical variables (discrete and continuous).
 #'
 #' @param clustering vector. Named vector with obtained clusterings.
-#' @param subtype.name string. Name of subtype.
+#' @param clinical.data.path string. Path to clinical data.
+#' @param clinical.metadata list. A list indicating for each clinical variable
+#' to evaluate if it is 'DISCRETE' or 'NUMERIC'. Following an example:
+#'     clinical.metadata = list(gender='DISCRETE', age_at_initial_pathologic_diagnosis='NUMERIC', 
+#'     pathologic_M='DISCRETE', pathologic_N='DISCRETE', pathologic_T='DISCRETE', 
+#'     pathologic_stage='DISCRETE')
+#'
 #'
 #' @return Vector with one p-value for each clinical variable tested.
 #' @export
-check.clinical.enrichment <- function(clustering, subtype.name) {
-    clinical.params = get.clinical.params(subtype.name)  # read table with clinical params
+check.clinical.enrichment <- function(clustering, clinical.data.path, 
+                                      clinical.metadata) {
     
-    # For each clinical variable set if it is numeric or discrete
-    clinical.metadata = list(gender='DISCRETE', age_at_initial_pathologic_diagnosis='NUMERIC',
-                             pathologic_M='DISCRETE', pathologic_N='DISCRETE', pathologic_T='DISCRETE', pathologic_stage='DISCRETE')
+    # Read RDS or table
+    ext <- strsplit(basename(clinical.data.path), ".", fixed=T)[[1]][-1]
+    if(ext == "rds"){
+        clinical.params = readRDS(clinical.data.path)
+       
+    } else {
+        clinical.params = read.table(clinical.data.path, 
+                                     header=T, stringsAsFactors = F)
+    }
+    
     
     pvalues = c()
     
@@ -179,12 +192,18 @@ check.clinical.enrichment <- function(clustering, subtype.name) {
     
     for (clinical.param in names(clinical.metadata)) { # iter across clinical variables
         
+        # Skip clinical variable that are not in the clinical.metadata given as
+        # input
         if (!(clinical.param %in% colnames(clinical.params))) {
-            #print(paste0('WARNING: ', clinical.param, ' does not appear for subtype ', subtype.name))
+            print(paste0('WARNING: ', clinical.param, ' skipped from analysis (not in
+                         provided clinical.metadata.)'))
             next
         }
         
-        clinical.values = clinical.params[names(clustering),clinical.param]
+        # Extract clinical value with patients in the same order of clustering
+        clinical.values = clinical.params[names(clustering), clinical.param]
+        
+        # Check if variable is discrete or numeric
         is.discrete.param = clinical.metadata[clinical.param] == 'DISCRETE' #boolean for discrete
         is.numeric.param = clinical.metadata[clinical.param] == 'NUMERIC' #boolean for numeric
         stopifnot(is.discrete.param | is.numeric.param)
@@ -195,7 +214,8 @@ check.clinical.enrichment <- function(clustering, subtype.name) {
         if (is.numeric.param) {
             numeric.entries = !is.na(as.numeric(clinical.values))
             if (2 * sum(numeric.entries) < length(clinical.values)) {
-                #print(paste0('WARNING: skipping on ', clinical.param, ' for subtype ', subtype.name))
+                print(paste0('WARNING: skipping on ', clinical.param, ' bacause too many NAs: ', 
+                             (length(clinical.values) - numeric.entries)))
                 next
             }
         } else {
@@ -206,13 +226,15 @@ check.clinical.enrichment <- function(clustering, subtype.name) {
             } else if (length(table(clinical.values[not.na.entries])) == 1) {
                 should.skip = T
             }
+            
             if (should.skip) {
-                #print(paste0('WARNING: skipping on ', clinical.param, ' for subtype ', subtype.name))
+                print(paste0('WARNING: skipping on ', clinical.param, ' because too many NAs or only 
+                             one value'))
                 next
             }
         }
         
-        params.being.tested = c(params.being.tested, clinical.param)
+        params.being.tested = c(params.being.tested, clinical.param) # collect params tested
         
         if (is.discrete.param) { #chi-squared test
             #clustering.with.clinical = cbind(clustering, clinical.values)
@@ -232,6 +254,7 @@ check.clinical.enrichment <- function(clustering, subtype.name) {
         
     }
     names(pvalues) = params.being.tested
+    
     return(pvalues)
 }
 
@@ -296,11 +319,6 @@ get.empirical.clinical <- function(clustering, clinical.values, is.chisq) {
 # Other functions #
 ###################
 
-get.dataset.dir.path <- function() {
-    return('DATASETS_PATH')
-}
-
-
 #' Compute log-rank p-value
 #'
 #' @param survdiff.res list. Result of Test Survival Curve Differences from
@@ -313,27 +331,4 @@ get.logrank.pvalue <- function(survdiff.res) {
 }
 
 
-get.clinical.params <- function(subtype.name) {
-    clinical.data.path = paste(get.clinical.params.dir(), subtype.name, sep = '')
-    clinical.params = read.table(clinical.data.path,
-                                 sep='\t', header=T, row.names = 1, stringsAsFactors = F)
-    rownames.with.duplicates = get.fixed.names(rownames(clinical.params))  
-    clinical.params = clinical.params[!duplicated(rownames.with.duplicates),]
-    rownames(clinical.params) = rownames.with.duplicates[!duplicated(rownames.with.duplicates)]
-    return(clinical.params)
-}
 
-
-get.clinical.params.dir <- function() {
-    return('CLINICAL_PARAMS_PATH')
-}
-
-
-get.fixed.names <- function(patient.names, include.type=F) {
-    # fix the TCGA names to only include the patient ids
-    if (include.type) {
-        return(gsub('-', '\\.', toupper(substring(patient.names, 1, 15))))
-    } else {
-        return(gsub('-', '\\.', toupper(substring(patient.names, 1, 12))))  
-    }
-}
