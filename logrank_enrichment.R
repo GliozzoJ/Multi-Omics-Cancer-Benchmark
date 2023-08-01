@@ -169,11 +169,12 @@ get.empirical.surv <- function(clustering, seed=42,
 #'     pathologic_M='DISCRETE', pathologic_N='DISCRETE', pathologic_T='DISCRETE', 
 #'     pathologic_stage='DISCRETE')
 #'
+#' @param seed integer. Set seed for reproducibility.
 #'
 #' @return Vector with one p-value for each clinical variable tested.
 #' @export
 check.clinical.enrichment <- function(clustering, clinical.data.path, 
-                                      clinical.metadata) {
+                                      clinical.metadata, seed=42) {
     
     # Read RDS or table
     ext <- strsplit(basename(clinical.data.path), ".", fixed=T)[[1]][-1]
@@ -241,13 +242,17 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
             #tbl = table(as.data.frame(clustering.with.clinical[!is.na(clinical.values),]))
             #test.res = chisq.test(tbl)
             #pvalue = test.res$p.value
-            pvalue = get.empirical.clinical(clustering[!is.na(clinical.values)], clinical.values[!is.na(clinical.values)], T)
+            pvalue = get.empirical.clinical(clustering[!is.na(clinical.values)], 
+                                            clinical.values[!is.na(clinical.values)], T, 
+                                            seed=seed)
             
         } else if (is.numeric.param) { #kruskal wallis
             #test.res = kruskal.test(as.numeric(clinical.values[numeric.entries]),
             #				clustering[numeric.entries])
             #pvalue = test.res$p.value
-            pvalue = get.empirical.clinical(clustering[numeric.entries], as.numeric(clinical.values[numeric.entries]), F)
+            pvalue = get.empirical.clinical(clustering[numeric.entries], 
+                                            as.numeric(clinical.values[numeric.entries]), F, 
+                                            seed=seed)
         }
         
         pvalues = c(pvalues, pvalue)
@@ -265,11 +270,15 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
 #' @param clinical.values vector. Vector with values for a clinical variable.
 #' @param is.chisq boolean. True to compute chi2-test on discrete variables, False
 #' to compute Kruskal-Wallis Test on numerical variables. 
+#' @param seed integer. Set seed for reproducibility.
 #'
 #' @return P-value for considered test.
 #' @export
-get.empirical.clinical <- function(clustering, clinical.values, is.chisq) {
-    set.seed(42)
+get.empirical.clinical <- function(clustering, clinical.values, is.chisq, 
+                                   seed=42) {
+    
+    set.seed(seed)
+    
     if (is.chisq) {
         clustering.with.clinical = cbind(clustering, clinical.values)
         tbl = table(as.data.frame(clustering.with.clinical))
