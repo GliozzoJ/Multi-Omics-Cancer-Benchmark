@@ -13,6 +13,7 @@
 # Nimrod Rappoport , Ron Shamir, Multi-omic and multi-view clustering algorithms: 
 # review and cancer benchmark, Nucleic Acids Research, Volume 46, Issue 20, 
 # 16 November 2018, Pages 10546–10562, https://doi.org/10.1093/nar/gky889
+# August 2023
 
 
 # Load libraries
@@ -196,8 +197,7 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
         # Skip clinical variable that are not in the clinical.metadata given as
         # input
         if (!(clinical.param %in% colnames(clinical.params))) {
-            print(paste0('WARNING: ', clinical.param, ' skipped from analysis (not in
-                         provided clinical.metadata.)'))
+            print(paste0('WARNING: ', clinical.param, ' skipped from analysis (not in provided clinical.metadata.)'))
             next
         }
         
@@ -215,7 +215,7 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
         if (is.numeric.param) {
             numeric.entries = !is.na(as.numeric(clinical.values))
             if (2 * sum(numeric.entries) < length(clinical.values)) {
-                print(paste0('WARNING: skipping on ', clinical.param, ' bacause too many NAs: ', 
+                print(paste0('WARNING: skipping on ', clinical.param, ' because too many NAs: ', 
                              (length(clinical.values) - numeric.entries)))
                 next
             }
@@ -229,8 +229,7 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
             }
             
             if (should.skip) {
-                print(paste0('WARNING: skipping on ', clinical.param, ' because too many NAs or only 
-                             one value'))
+                print(paste0('WARNING: skipping on ', clinical.param, ' because too many NAs or only one value'))
                 next
             }
         }
