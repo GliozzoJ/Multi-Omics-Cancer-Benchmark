@@ -98,13 +98,14 @@ check.survival <- function(groups, survival.file.path, keep.NA=T, death.name="cd
 #' @param death.name string. Name of the column in data that has the survival event
 #' as 1 = Death, 0 = Alive.
 #' @param surv.name string. Name of the column in data that has the survival time.
+#' @param mc.cores integer. Number of cores to use (def. half of available cores).
 #'
 #' @return List with p-value, confidence interval and number of permutations
 #' @export
 get.empirical.surv <- function(clustering, seed=42, 
                                survival.file.path, keep.NA=T, 
                                death.name="cdr.os", 
-                               surv.name="cdr.os.time") {
+                               surv.name="cdr.os.time", mc.cores=detectCores()/2) {
     
     set.seed(seed, "L'Ecuyer-CMRG")
     surv.ret = check.survival(clustering, survival.file.path=survival.file.path, 
@@ -132,7 +133,7 @@ get.empirical.surv <- function(clustering, seed=42,
                                        keep.NA=keep.NA, death.name=death.name, 
                                        surv.name=surv.name)$chisq
             return(cur.chisq)
-        }, mc.cores=50))
+        }, mc.cores=mc.cores))
         
         total.num.perms = total.num.perms + num.perms #update number of perms computed
         total.num.extreme.chisq = total.num.extreme.chisq + sum(perm.chisq >= orig.chisq) #number of extreme chisq
@@ -169,13 +170,14 @@ get.empirical.surv <- function(clustering, seed=42,
 #'     clinical.metadata = list(gender='DISCRETE', age_at_initial_pathologic_diagnosis='NUMERIC', 
 #'     pathologic_M='DISCRETE', pathologic_N='DISCRETE', pathologic_T='DISCRETE', 
 #'     pathologic_stage='DISCRETE')
-#'
 #' @param seed integer. Set seed for reproducibility.
+#' @param mc.cores integer. Number of cores to use (def. half of available cores).
 #'
 #' @return Vector with one p-value for each clinical variable tested.
 #' @export
 check.clinical.enrichment <- function(clustering, clinical.data.path, 
-                                      clinical.metadata, seed=42) {
+                                      clinical.metadata, seed=42, 
+                                      mc.cores=detectCores()/2) {
     
     # Read RDS or table
     ext <- strsplit(basename(clinical.data.path), ".", fixed=T)[[1]][-1]
@@ -243,7 +245,7 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
             #pvalue = test.res$p.value
             pvalue = get.empirical.clinical(clustering[!is.na(clinical.values)], 
                                             clinical.values[!is.na(clinical.values)], T, 
-                                            seed=seed)
+                                            seed=seed, mc.cores=mc.cores)
             
         } else if (is.numeric.param) { #kruskal wallis
             #test.res = kruskal.test(as.numeric(clinical.values[numeric.entries]),
@@ -251,7 +253,7 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
             #pvalue = test.res$p.value
             pvalue = get.empirical.clinical(clustering[numeric.entries], 
                                             as.numeric(clinical.values[numeric.entries]), F, 
-                                            seed=seed)
+                                            seed=seed, mc.cores=mc.cores)
         }
         
         pvalues = c(pvalues, pvalue)
@@ -270,11 +272,12 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
 #' @param is.chisq boolean. True to compute chi2-test on discrete variables, False
 #' to compute Kruskal-Wallis Test on numerical variables. 
 #' @param seed integer. Set seed for reproducibility.
+#' @param mc.cores integer. Number of cores to use (def. half of available cores).
 #'
 #' @return P-value for considered test.
 #' @export
 get.empirical.clinical <- function(clustering, clinical.values, is.chisq, 
-                                   seed=42) {
+                                   seed=42, mc.cores=detectCores()/2) {
     
     set.seed(seed, "L'Ecuyer-CMRG")
     
@@ -306,7 +309,7 @@ get.empirical.clinical <- function(clustering, clinical.values, is.chisq,
             }
             cur.pvalue = test.res$p.value
             return(cur.pvalue)
-        }, mc.cores=50))
+        }, mc.cores=mc.cores))
         total.num.iters = total.num.iters + num.iter
         total.num.extreme = total.num.extreme + sum(perm.pvalues <= orig.pvalue)
         
