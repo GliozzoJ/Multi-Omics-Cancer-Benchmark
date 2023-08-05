@@ -173,7 +173,8 @@ get.empirical.surv <- function(clustering, seed=42,
 #' @param seed integer. Set seed for reproducibility.
 #' @param mc.cores integer. Number of cores to use (def. half of available cores).
 #'
-#' @return Vector with one p-value for each clinical variable tested.
+#' @return List with p-values, confidence intervals and number of permutations
+#' for each tested clinical variable.
 #' @export
 check.clinical.enrichment <- function(clustering, clinical.data.path, 
                                       clinical.metadata, seed=42, 
@@ -191,9 +192,13 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
     
     
     pvalues = c()
+    total.num.iters = c()
+    total.num.extreme = c()
+    conf.int = list()
     
     params.being.tested = c()
     
+    c=1 #counter
     for (clinical.param in names(clinical.metadata)) { # iter across clinical variables
         
         # Skip clinical variable that are not in the clinical.metadata given as
@@ -243,7 +248,7 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
             #tbl = table(as.data.frame(clustering.with.clinical[!is.na(clinical.values),]))
             #test.res = chisq.test(tbl)
             #pvalue = test.res$p.value
-            pvalue = get.empirical.clinical(clustering[!is.na(clinical.values)], 
+            res = get.empirical.clinical(clustering[!is.na(clinical.values)], 
                                             clinical.values[!is.na(clinical.values)], T, 
                                             seed=seed, mc.cores=mc.cores)
             
@@ -251,17 +256,25 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
             #test.res = kruskal.test(as.numeric(clinical.values[numeric.entries]),
             #				clustering[numeric.entries])
             #pvalue = test.res$p.value
-            pvalue = get.empirical.clinical(clustering[numeric.entries], 
+            res = get.empirical.clinical(clustering[numeric.entries], 
                                             as.numeric(clinical.values[numeric.entries]), F, 
                                             seed=seed, mc.cores=mc.cores)
         }
         
-        pvalues = c(pvalues, pvalue)
+        pvalues = c(pvalues, res$pvalue)
+        total.num.iters = c(total.num.iters, res$total.num.iters)
+        total.num.extreme = c(total.num.extreme, res$total.num.extreme)
+        conf.int[[c]] = res$conf.int
         
+        c=c+1 #update counter
     }
     names(pvalues) = params.being.tested
+    names(total.num.iters) = params.being.tested
+    names(total.num.extreme) = params.being.tested
+    names(conf.int) = params.being.tested
     
-    return(pvalues)
+    return(list(pvalues=pvalues, conf.int=conf.int, 
+           total.num.iters=total.num.iters, total.num.extreme=total.num.extreme))
 }
 
 
@@ -274,7 +287,8 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
 #' @param seed integer. Set seed for reproducibility.
 #' @param mc.cores integer. Number of cores to use (def. half of available cores).
 #'
-#' @return P-value for considered test.
+#' @return P-value for considered test, confidence interval and number of
+#' iterations.
 #' @export
 get.empirical.clinical <- function(clustering, clinical.values, is.chisq, 
                                    seed=42, mc.cores=detectCores()/2) {
@@ -323,7 +337,8 @@ get.empirical.clinical <- function(clustering, clinical.values, is.chisq,
             should.continue = F
         }
     }
-    return(cur.pvalue)
+    return(list(pvalue=cur.pvalue, conf.int=cur.conf.int, 
+                total.num.iters=total.num.iters, total.num.extreme=total.num.extreme))
 }
 
 ###################
