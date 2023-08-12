@@ -149,10 +149,11 @@ get.empirical.surv <- function(clustering, seed=42,
         sig.threshold = 0.05
         is.conf.small = ((cur.conf.int[2] - cur.pvalue) < min(cur.pvalue / 10, 0.01)) & ((cur.pvalue - cur.conf.int[1]) < min(cur.pvalue / 10, 0.01))
         is.threshold.in.conf = cur.conf.int[1] < sig.threshold & cur.conf.int[2] > sig.threshold
-        if ((is.conf.small & !is.threshold.in.conf) | (total.num.perms > 2e7)) {
+        #if ((is.conf.small & !is.threshold.in.conf) | (total.num.perms > 2e7)) {
+        if ((!is.threshold.in.conf) | (total.num.perms > 5e6)) {
             should.continue = F
         } else {
-            num.perms = 1e5
+            num.perms = 1e5 #1e5
         }
     }
     
