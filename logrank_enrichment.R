@@ -109,13 +109,15 @@ check.survival <- function(groups, survival.file.path, keep.NA=T, death.name="cd
 #' as 1 = Death, 0 = Alive.
 #' @param surv.name string. Name of the column in data that has the survival time.
 #' @param mc.cores integer. Number of cores to use (def. half of available cores).
+#' @param verbose boolean. Do you want to print results?
 #'
 #' @return List with p-value, confidence interval and number of permutations
 #' @export
 get.empirical.surv <- function(clustering, seed=42, 
                                survival.file.path, keep.NA=T, 
                                death.name="cdr.os", 
-                               surv.name="cdr.os.time", mc.cores=detectCores()/2) {
+                               surv.name="cdr.os.time", mc.cores=detectCores()/2,
+                               verbose=F) {
     
     set.seed(seed, "L'Ecuyer-CMRG")
     surv.ret = check.survival(clustering, survival.file.path=survival.file.path, 
@@ -132,8 +134,10 @@ get.empirical.surv <- function(clustering, seed=42,
     total.num.extreme.chisq = 0
     
     while (should.continue) {
-        print('Another iteration in empirical survival calculation')
-        print(num.perms)
+        if(verbose == T){
+            print('Another iteration in empirical survival calculation')
+            print(num.perms)
+        }
         # Compute the chi2 statistic for each permutation
         perm.chisq = as.numeric(mclapply(1:num.perms, function(i) {
             cur.clustering = sample(clustering)
@@ -152,9 +156,11 @@ get.empirical.surv <- function(clustering, seed=42,
         cur.pvalue = binom.ret$estimate # the estimated probability of success
         cur.conf.int = binom.ret$conf.int # confidence interval for the probability of success
         
-        print(c(total.num.extreme.chisq, total.num.perms))
-        print(cur.pvalue)
-        print(cur.conf.int)
+        if(verbose == T){
+            print(c(total.num.extreme.chisq, total.num.perms))
+            print(cur.pvalue)
+            print(cur.conf.int)
+        }
         
         sig.threshold = 0.05
         is.conf.small = ((cur.conf.int[2] - cur.pvalue) < min(cur.pvalue / 10, 0.01)) & ((cur.pvalue - cur.conf.int[1]) < min(cur.pvalue / 10, 0.01))
@@ -219,6 +225,8 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
     
     c=1 #counter
     for (clinical.param in names(clinical.metadata)) { # iter across clinical variables
+        
+        print(paste("Analysing clinical variable:", clinical.param))
         
         # Skip clinical variable that are not in the clinical.metadata given as
         # input
@@ -328,7 +336,7 @@ get.empirical.clinical <- function(clustering, clinical.values, is.chisq,
     should.continue = T
     
     while (should.continue) {
-        print('another iteration in empirical clinical')
+        #print('another iteration in empirical clinical')
         perm.pvalues = as.numeric(mclapply(1:num.iter, function(i) {
             cur.clustering = sample(clustering)
             names(cur.clustering) = names(clustering)
