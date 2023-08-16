@@ -28,6 +28,7 @@ library("parallel")
 #' @param groups vector. Named vector with obtained clusterings.
 #' @param survival.file.path string. Path with survival data (accepted table or
 #' .rds format containing a dataframe with rownames). Data need to be samples x features.
+#' You can also pass directly a dataframe to this variable.
 #' @param keep.NA boolean. Do you want to keep NAs in survival time and event? (def. T).
 #' If FALSE, NAs are substituted with 0. 
 #' @param death.name string. Name of the column in data that has the survival event
@@ -45,13 +46,21 @@ check.survival <- function(groups, survival.file.path, keep.NA=T, death.name="cd
                            surv.name="cdr.os.time") {
     
     # Read RDS or table
-    ext <- strsplit(basename(survival.file.path), ".", fixed=T)[[1]][-1]
-    if(ext == "rds"){
-        survival.data = readRDS(survival.file.path)
+    if(is.character(survival.file.path)){
+        
+        ext <- strsplit(basename(survival.file.path), ".", fixed=T)[[1]][-1]
+        if(ext == "rds"){
+            survival.data = readRDS(survival.file.path)
+            patient.names.in.file = rownames(survival.data)
+        } else{
+            survival.data = read.table(survival.file.path, header = TRUE)
+            patient.names.in.file = as.character(survival.data[, 1])
+        }
+        
+    } else{
+        
+        survival.data = survival.file.path
         patient.names.in.file = rownames(survival.data)
-    } else {
-        survival.data = read.table(survival.file.path, header = TRUE)
-        patient.names.in.file = as.character(survival.data[, 1])
     }
     
     patient.names = names(groups) #clustering names
@@ -93,6 +102,7 @@ check.survival <- function(groups, survival.file.path, keep.NA=T, death.name="cd
 #' @param seed integer. Set seed for reproducibility. 
 #' @param survival.file.path string. Path with survival data (accepted table or
 #' .rds format containing a dataframe with rownames). Data need to be samples x features.
+#' You can also pass directly a dataframe to this variable.
 #' @param keep.NA boolean. Do you want to keep NAs in survival time and event? (def. T).
 #' If FALSE, NAs are substituted with 0. 
 #' @param death.name string. Name of the column in data that has the survival event
@@ -165,7 +175,8 @@ get.empirical.surv <- function(clustering, seed=42,
 #' Enrichment analysis on clinical variables (discrete and continuous).
 #'
 #' @param clustering vector. Named vector with obtained clusterings.
-#' @param clinical.data.path string. Path to clinical data.
+#' @param clinical.data.path string. Path to clinical data (table, rds) or
+#' directly a dataframe.
 #' @param clinical.metadata list. A list indicating for each clinical variable
 #' to evaluate if it is 'DISCRETE' or 'NUMERIC'. Following an example:
 #'     clinical.metadata = list(gender='DISCRETE', age_at_initial_pathologic_diagnosis='NUMERIC', 
@@ -182,13 +193,20 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
                                       mc.cores=detectCores()/2) {
     
     # Read RDS or table
-    ext <- strsplit(basename(clinical.data.path), ".", fixed=T)[[1]][-1]
-    if(ext == "rds"){
-        clinical.params = readRDS(clinical.data.path)
-       
+    if(is.character(clinical.data.path)){
+    
+        ext <- strsplit(basename(clinical.data.path), ".", fixed=T)[[1]][-1]
+        if(ext == "rds"){
+            clinical.params = readRDS(clinical.data.path)
+            
+        } else {
+            clinical.params = read.table(clinical.data.path, 
+                                         header=T, stringsAsFactors = F)
+        }
+        
     } else {
-        clinical.params = read.table(clinical.data.path, 
-                                     header=T, stringsAsFactors = F)
+        
+        clinical.params = clinical.data.path
     }
     
     
