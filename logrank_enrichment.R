@@ -283,9 +283,18 @@ check.clinical.enrichment <- function(clustering, clinical.data.path,
             #test.res = kruskal.test(as.numeric(clinical.values[numeric.entries]),
             #				clustering[numeric.entries])
             #pvalue = test.res$p.value
-            res = get.empirical.clinical(clustering[numeric.entries], 
-                                            as.numeric(clinical.values[numeric.entries]), F, 
-                                            seed=seed, mc.cores=mc.cores)
+            if(length(table(clustering[numeric.entries])) > 1){
+                
+                res = get.empirical.clinical(clustering[numeric.entries], 
+                                             as.numeric(clinical.values[numeric.entries]), F, 
+                                             seed=seed, mc.cores=mc.cores)
+                
+            } else {
+                
+                res = list("pvalue"=1, "conf.int"=c(NA,NA), "total.num.iters"=NA, 
+                           "total.num.extreme"=NA)
+            
+            }
         }
         
         pvalues = c(pvalues, res$pvalue)
